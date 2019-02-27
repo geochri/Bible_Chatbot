@@ -26,13 +26,13 @@ def ie_preprocess(df):
     return documents
 
 def preprocessW2V(df):
-    documents = []
+    documents = []; documents_raw = []
     for document in df["t"]:
-        sentences = nltk.sent_tokenize(document)
+        sentences = nltk.sent_tokenize(document); documents_raw.extend(sentences)
         sentences = [nltk.word_tokenize(sent) for sent in sentences]
         sentences = [[word.lower() for word in sent if word.isalnum()] for sent in sentences]
         documents.extend(sentences)
-    return documents
+    return documents_raw, documents
 
 ## chunks documents based on grammar1 exp
 def chunker(documents):
@@ -125,6 +125,36 @@ def get_noun_phrases(sent_tree):
     noun_phrases = list(set(noun_phrases))
     return noun_phrases
 
+# vectorize sentences
+def vectorize_sent(documents_token, model):
+    sents_vec = []
+    vocab = model.wv.vocab
+    for sent in documents_token:
+        l = 0; wv = 0
+        for token in sent:
+            if token in vocab:
+                wv += model.wv[token]
+                l += 1
+        if l != 0:
+            sents_vec.append(wv/l)
+        else:
+            sents_vec.append(None)
+    return sents_vec
+
+# find most similar sentence
+def most_sim_sent(query, sents_vec):
+    query = np.array(query)
+    score = []
+    for s in sents_vec:
+        s = np.array(s)
+        try:
+            score.append(np.dot(s,query[0])/(np.dot(s,s)*np.dot(query[0],query[0])))
+        except:
+            score.append(0)
+    score = np.array(score)
+    score.argsort()[-5:][::-1]
+    return score, score.argsort()[-5:][::-1]
+
 datafolder = "./data/"
 df = pd.read_csv(os.path.join(datafolder,"t_bbe.csv"))
 
@@ -136,8 +166,23 @@ sent_processed = tag_chunk_documents(documents, bigram_chunker)
 sent_tree = convert_sentprocessed_to_tree(sent_processed)
 noun_phrases = get_noun_phrases(sent_tree)
 
-documents_token = preprocessW2V(ecc)
-model = Word2Vec()
+documents_raw, documents_token = preprocessW2V(ecc)
+model = Word2Vec(documents_token,size=50,window=5,alpha=0.025,min_count=3, workers=3)
+model.train(documents_token, total_examples=len(documents_token), epochs=50)
+model.save(os.path.join(datafolder,"word2vec_ecc.model"))
+sim = model.wv.most_similar(positive="law")
+
+sents_vec = vectorize_sent(documents_token, model)
+
+while(True):
+    query = input("What would you like to know?")
+    #query = "what is wisdom and knowledge?"
+    query = nltk.word_tokenize(query)
+    query = [word.lower() for word in query if word.isalnum()]
+    query = vectorize_sent([query], model)
+    sim_sent_score, sim_sent_idx = most_sim_sent(query, sents_vec)
+    for idx in sim_sent_idx:
+        print(documents_raw[idx])
 
 '''
 vectorizer = CountVectorizer(input="content", max_features=1000000)
