@@ -127,14 +127,16 @@ def get_noun_phrases(sent_tree):
 
 # vectorize sentences
 def vectorize_sent(documents_token, model):
+    stopwords = list(set(nltk.corpus.stopwords.words("english")))
     sents_vec = []
     vocab = model.wv.vocab
     for sent in documents_token:
         l = 0; wv = 0
         for token in sent:
             if token in vocab:
-                wv += model.wv[token]
-                l += 1
+                if token not in stopwords:
+                    wv += model.wv[token]
+                    l += 1
         if l != 0:
             sents_vec.append(wv/l)
         else:
@@ -157,6 +159,7 @@ def most_sim_sent(query, sents_vec):
 
 datafolder = "./data/"
 df = pd.read_csv(os.path.join(datafolder,"t_bbe.csv"))
+stopwords = list(set(nltk.corpus.stopwords.words("english")))
 
 ecc = df[df["b"]==21]
 documents = ie_preprocess(ecc)
@@ -166,19 +169,23 @@ sent_processed = tag_chunk_documents(documents, bigram_chunker)
 sent_tree = convert_sentprocessed_to_tree(sent_processed)
 noun_phrases = get_noun_phrases(sent_tree)
 
+ecc = df
 documents_raw, documents_token = preprocessW2V(ecc)
-model = Word2Vec(documents_token,size=50,window=5,alpha=0.025,min_count=3, workers=3)
-model.train(documents_token, total_examples=len(documents_token), epochs=50)
+model = Word2Vec(documents_token,size=300,window=5,alpha=0.025,min_count=3, workers=3)
+model.train(documents_token, total_examples=len(documents_token), epochs=300)
 model.save(os.path.join(datafolder,"word2vec_ecc.model"))
 sim = model.wv.most_similar(positive="law")
 
 sents_vec = vectorize_sent(documents_token, model)
 
 while(True):
-    query = input("What would you like to know?")
+    query = input("Say something and I'll say something related back!! \n")
+    if query == "quit":
+        break
     #query = "what is wisdom and knowledge?"
     query = nltk.word_tokenize(query)
     query = [word.lower() for word in query if word.isalnum()]
+    query = [word for word in query if word not in stopwords]
     query = vectorize_sent([query], model)
     sim_sent_score, sim_sent_idx = most_sim_sent(query, sents_vec)
     for idx in sim_sent_idx:
