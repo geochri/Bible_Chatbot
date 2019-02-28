@@ -171,7 +171,7 @@ noun_phrases = get_noun_phrases(sent_tree)
 
 ecc = df
 documents_raw, documents_token = preprocessW2V(ecc)
-model = Word2Vec(documents_token,size=300,window=5,alpha=0.025,min_count=3, workers=3)
+model = Word2Vec(documents_token,size=300,window=7,alpha=0.025,min_count=3, workers=3)
 model.train(documents_token, total_examples=len(documents_token), epochs=300)
 model.save(os.path.join(datafolder,"word2vec_ecc.model"))
 sim = model.wv.most_similar(positive="law")
