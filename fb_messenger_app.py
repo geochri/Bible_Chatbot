@@ -6,13 +6,14 @@ Created on Tue Sep 11 14:13:09 2018
 """
 import urllib.request as req
 import random
+import pickle
 from flask import Flask, request
 from pymessenger.bot import Bot
 from gensim.models import Word2Vec
 import nltk
 import pandas as pd
 import os
-from main_bible_chat import user_query, user_profile
+from main_bible_chat import BigramChunker, user_query, user_profile, get_name, get_gender
 import torchvision.models as models
 import torch.nn as nn
 import torch
@@ -52,6 +53,13 @@ def vectorize_sent(documents_token, model):
             sents_vec.append(None)
     return sents_vec
 
+def load_pickle(filename):
+    completeName = os.path.join("./data/",\
+                                filename)
+    with open(completeName, 'rb') as pkl_file:
+        data = pickle.load(pkl_file)
+    return data
+
 ### Textual
 datafolder = "./data/"
 df = pd.read_csv(os.path.join(datafolder,"t_bbe.csv"))
@@ -60,6 +68,7 @@ model = Word2Vec.load(os.path.join(datafolder, "word2vec_ecc.model"))
 ecc = df
 documents_raw, documents_token = preprocessW2V(ecc)
 sents_vec = vectorize_sent(documents_token, model)
+bigram_chunker = load_pickle("bigram_chunker.pth.tar")
 
 # Images
 invlabels_dict = {0:'apple', 1:'orange', 2:'pear'}
@@ -74,11 +83,13 @@ resnet18.eval()
 transform_test = transforms.Compose([transforms.ToTensor(),\
                                 transforms.Normalize(mean=[0.485, 0.456, 0.406],\
                                                  std=[0.229, 0.224, 0.225])])
+name_get = 0; gender_get = 0; age_get = 0
 users = []
 user_ids = [u.recipient_id for u in users]
 #We will receive messages that Facebook sends our bot at this endpoint 
 @app.route("/", methods=['GET', 'POST'])
 def receive_message():
+    global name_get, gender_get, age_get
     if request.method == 'GET':
         """Before allowing people to message your bot, Facebook has implemented a verify token
         that confirms all requests that your bot receives came from Facebook.""" 
@@ -94,20 +105,49 @@ def receive_message():
             if message.get('message'):
                 #Facebook Messenger ID for user so we know where to send response back to
                 recipient_id = message['sender']['id']
-                # create new user if doesn't exist
+                # create new user if doesn't exist else assigns a user profile
                 if recipient_id not in user_ids:
-                    user = user_profile(); user.recipient_id = recipient_id; users.append(user); user_ids.append(recipient_id)
+                    user = user_profile(); user.recipient_id = recipient_id; user.save(); users.append(user); user_ids.append(recipient_id)
                 else:
                     user = users[user_ids.index(recipient_id)]
                 
                 if message['message'].get('text'):
                     #reads user message (usertext)
                     usertext = message['message']['text']
-                    if user.name == "":
+                    
+                    ############################ NAME ############################################################################
+                    #### prompts user for name if its a new user
+                    if (user.name == "") and (name_get == 0):
+                        name_get = 1
                         send_message(recipient_id, "Hey, how do I address you?")
-                    else:
-                        send_message(recipient_id, user_query(usertext, model, sents_vec, documents_raw, stopwords))
-                        send_message(recipient_id, "Say something and I'll say something related back!!")
+                        continue
+                    #### gets user's name
+                    if name_get == 1:
+                        name_get = 0
+                        user.name = get_name(usertext, bigram_chunker); user.save()
+                        send_message(recipient_id, f"Hi {user.name}!")
+                    
+                    ################################# GENDER ######################################################################
+                    #### prompts user for gender if new user
+                    if user.gender == "" and gender_get == 0:
+                        gender_get = 1
+                        send_message(recipient_id, "Alright, so whats your gender?")
+                        continue
+                    ##### gets user's gender
+                    if gender_get == 1:
+                        gender_get = 0
+                        user.gender = get_gender(usertext); user.save()
+                        send_message(recipient_id, f"Ah, ok. So you're a {user.gender}.")
+                        
+                    ######################### age ##########################################################
+                    ###### prompts user for age if new user
+                    if user.age == None and age_get == 0:
+                        age_get = 1
+                        send_message(recipient_id, "Okey dokey, so whats your age?")
+                        continue
+                    
+                    send_message(recipient_id, user_query(usertext, model, sents_vec, documents_raw, stopwords))
+                    send_message(recipient_id, "Say something and I'll say something related back!!")
                         
                 #if user sends us a GIF, photo,video, or any other non-text item
                 if message['message'].get('attachments'):

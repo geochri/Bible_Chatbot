@@ -8,7 +8,6 @@ Created on Mon Feb 18 17:11:41 2019
 
 import numpy as np
 import nltk
-from nltk.corpus import conll2000
 import os
 import pickle
 
@@ -186,16 +185,43 @@ class user_profile():
         self.interests = []
         
     def save(self):
-        save_as_pickle(f"profile_{self.name}.profile", self)
+        save_as_pickle(f"profile_{str(self.recipient_id)}.profile", self)
 
-def get_name(text):
-    train_sents = conll2000.chunked_sents("train.txt", chunk_types=["NP"])
-    bigram_chunker = BigramChunker(train_sents)
+def get_name(text, bigram_chunker):
+    stop_nouns = ["i", "he", "she", "they", "them", "it", "my", "me","we","you","a","the","an"]
+    #bigram_chunker = load_pickle("bigram_chunker.pth.tar")
     sent = nltk.pos_tag(nltk.word_tokenize(text))
     sent_processed = tag_chunk_documents([sent], bigram_chunker)
-    for w in sent_processed[0]:
-        if w[2] == "":
-            pass
+    names = []
+    for i, w in enumerate(sent_processed[0]):
+        dummy = []
+        if w[2] == "B-NP":
+            dummy = w[0]
+            for next_w in sent_processed[0][(i+1):]:
+                if next_w[2] == "I-NP":
+                    dummy = dummy + " " + next_w[0]
+                else:
+                    break
+        if dummy != []:
+            flag = 0; dummies = dummy.lower().split()
+            for d in dummies:
+                if d in stop_nouns:
+                    flag = 1
+            if flag == 0:
+                names.append(dummy)
+    if names != []:
+        return names[0]
+    else:
+        return None
     
-    #nouns = [w[0] for w in sent if w[1]=="NN"]
-    return sent_processed
+def get_gender(text):
+    m = ["male", "boy", "m", "guy", "dude", "man", "gentleman", "bloke", "hunk", "mr", "uncle"]
+    f = ["female", "girl", "woman", "f", "lady", "madam", "mrs", "miss", "auntie", "auntie"] 
+    words = nltk.word_tokenize(text); words = [w.lower() for w in words]
+    for w in words:
+        if w in m:
+            return "male"
+        if w in f:
+            return "female"
+    return
+    
