@@ -4,10 +4,27 @@ Created on Mon Feb 18 17:11:41 2019
 
 @author: WT
 """
+############### Script that contains modules for chatbot ##############
 
 import numpy as np
 import nltk
+from nltk.corpus import conll2000
+import os
+import pickle
 
+def save_as_pickle(filename, data):
+    completeName = os.path.join("./data/",\
+                                filename)
+    with open(completeName, 'wb') as output:
+        pickle.dump(data, output)
+        
+def load_pickle(filename):
+    completeName = os.path.join("./data/",\
+                                filename)
+    with open(completeName, 'rb') as pkl_file:
+        data = pickle.load(pkl_file)
+    return data
+        
 ## tokenizes and attaches pos tags to sentences in df
 def ie_preprocess(df):
     documents = []
@@ -157,3 +174,28 @@ def user_query(query, model, sents_vec, documents_raw, stopwords):
     sim_sent_score, sim_sent_idx = most_sim_sent(query, sents_vec)
     ans = "\n".join([documents_raw[idx] for idx in sim_sent_idx])
     return ans
+
+class user_profile():
+    def __init__(self):
+        super(user_profile,self).__init__()
+        self.name = ""
+        self.recipient_id = None
+        self.hobbies = []
+        self.gender = ""
+        self.age = None
+        self.interests = []
+        
+    def save(self):
+        save_as_pickle(f"profile_{self.name}.profile", self)
+
+def get_name(text):
+    train_sents = conll2000.chunked_sents("train.txt", chunk_types=["NP"])
+    bigram_chunker = BigramChunker(train_sents)
+    sent = nltk.pos_tag(nltk.word_tokenize(text))
+    sent_processed = tag_chunk_documents([sent], bigram_chunker)
+    for w in sent_processed[0]:
+        if w[2] == "":
+            pass
+    
+    #nouns = [w[0] for w in sent if w[1]=="NN"]
+    return sent_processed

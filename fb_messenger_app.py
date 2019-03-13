@@ -12,7 +12,7 @@ from gensim.models import Word2Vec
 import nltk
 import pandas as pd
 import os
-from main_bible_chat import user_query
+from main_bible_chat import user_query, user_profile
 import torchvision.models as models
 import torch.nn as nn
 import torch
@@ -74,15 +74,8 @@ resnet18.eval()
 transform_test = transforms.Compose([transforms.ToTensor(),\
                                 transforms.Normalize(mean=[0.485, 0.456, 0.406],\
                                                  std=[0.229, 0.224, 0.225])])
-"""
-img = img.resize(size=(224,224))
-img = np.array(img)
-img = transform_test(img)
-output = resnet18(img.reshape(1,3,224,224))
-_, predicted = torch.max(output.data, 1)
-predicted_class = invlabels_dict[predicted.item()]
-"""
-
+users = []
+user_ids = [u.recipient_id for u in users]
 #We will receive messages that Facebook sends our bot at this endpoint 
 @app.route("/", methods=['GET', 'POST'])
 def receive_message():
@@ -101,11 +94,20 @@ def receive_message():
             if message.get('message'):
                 #Facebook Messenger ID for user so we know where to send response back to
                 recipient_id = message['sender']['id']
+                # create new user if doesn't exist
+                if recipient_id not in user_ids:
+                    user = user_profile(); user.recipient_id = recipient_id; users.append(user); user_ids.append(recipient_id)
+                else:
+                    user = users[user_ids.index(recipient_id)]
+                
                 if message['message'].get('text'):
                     #reads user message (usertext)
                     usertext = message['message']['text']
-                    send_message(recipient_id, user_query(usertext, model, sents_vec, documents_raw, stopwords))
-                    send_message(recipient_id, "Say something and I'll say something related back!!")
+                    if user.name == "":
+                        send_message(recipient_id, "Hey, how do I address you?")
+                    else:
+                        send_message(recipient_id, user_query(usertext, model, sents_vec, documents_raw, stopwords))
+                        send_message(recipient_id, "Say something and I'll say something related back!!")
                         
                 #if user sends us a GIF, photo,video, or any other non-text item
                 if message['message'].get('attachments'):

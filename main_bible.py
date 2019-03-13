@@ -4,6 +4,7 @@ Created on Mon Feb 18 17:11:41 2019
 
 @author: WT
 """
+############### Script that does model training and parameters fine-tuning #####################
 
 import pandas as pd
 import os
@@ -14,6 +15,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import nltk
 from nltk.corpus import conll2000
 from gensim.models import Word2Vec
+import pickle
 
 ## tokenizes and attaches pos tags to sentences in df
 def ie_preprocess(df):
@@ -157,18 +159,29 @@ def most_sim_sent(query, sents_vec):
     score.argsort()[-5:][::-1]
     return score, score.argsort()[-5:][::-1]
 
+def save_as_pickle(filename, data):
+    completeName = os.path.join("./data/",\
+                                filename)
+    with open(completeName, 'wb') as output:
+        pickle.dump(data, output)
+
 datafolder = "./data/"
 df = pd.read_csv(os.path.join(datafolder,"t_bbe.csv"))
 stopwords = list(set(nltk.corpus.stopwords.words("english")))
 
-ecc = df[df["b"]==21]
+#### Get POS and chunking
+ecc = df
 documents = ie_preprocess(ecc)
 train_sents = conll2000.chunked_sents("train.txt", chunk_types=["NP"])
 bigram_chunker = BigramChunker(train_sents)
+save_as_pickle("bigram_chunker.pth.tar", bigram_chunker)
 sent_processed = tag_chunk_documents(documents, bigram_chunker)
 sent_tree = convert_sentprocessed_to_tree(sent_processed)
 noun_phrases = get_noun_phrases(sent_tree)
+save_as_pickle("sent_tree.pth.tar", sent_tree)
+save_as_pickle("sent_processed.pth.tar",sent_processed)
 
+# Get word embeddings
 ecc = df
 documents_raw, documents_token = preprocessW2V(ecc)
 model = Word2Vec(documents_token,size=300,window=7,alpha=0.025,min_count=3, workers=3)
@@ -178,6 +191,7 @@ sim = model.wv.most_similar(positive="law")
 
 sents_vec = vectorize_sent(documents_token, model)
 
+'''
 while(True):
     query = input("Say something and I'll say something related back!! \n")
     if query == "quit":
@@ -190,7 +204,7 @@ while(True):
     sim_sent_score, sim_sent_idx = most_sim_sent(query, sents_vec)
     for idx in sim_sent_idx:
         print(documents_raw[idx])
-
+''' 
 '''
 vectorizer = CountVectorizer(input="content", max_features=1000000)
 dtm = vectorizer.fit_transform(df["t"])
