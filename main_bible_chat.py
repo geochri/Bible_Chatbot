@@ -10,6 +10,7 @@ import numpy as np
 import nltk
 import os
 import pickle
+import re
 
 def save_as_pickle(filename, data):
     completeName = os.path.join("./data/",\
@@ -185,7 +186,7 @@ class user_profile():
         self.interests = []
         
     def save(self):
-        save_as_pickle(f"profile_{str(self.recipient_id)}.profile", self)
+        save_as_pickle(f"profiles/profile_{str(self.recipient_id)}.profile", self)
 
 def get_name(text, bigram_chunker):
     stop_nouns = ["i", "he", "she", "they", "them", "it", "my", "me","we","you","a","the","an"]
@@ -224,4 +225,25 @@ def get_gender(text):
         if w in f:
             return "female"
     return
+
+def get_age(text):
+    ages = {'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, \
+            'eight': 8, 'nine': 9, 'ten': 10, 'eleven': 11, 'twelve': 12, 'thirteen': 13, \
+            'fourteen': 14, 'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18, \
+            'nineteen': 19, 'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50, 'sixty': 60, \
+            'seventy': 70, 'eighty': 80, 'ninety': 90, 'one hundred': 100}
+    age = re.findall("\d+", text)
+    if age != []:
+        age = age[0]
+    ### not a numberic integer? Try find numerical words
+    if age == []:
+        words = nltk.word_tokenize(text.replace("-", " "))
+        age_w = []
+        for w in words:
+            if w in ages:
+                age_w.append(ages[w])
+        age = sum(age_w)
+        if age == 0:
+            return
+    return age
     

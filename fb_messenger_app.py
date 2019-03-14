@@ -13,7 +13,7 @@ from gensim.models import Word2Vec
 import nltk
 import pandas as pd
 import os
-from main_bible_chat import BigramChunker, user_query, user_profile, get_name, get_gender
+from main_bible_chat import BigramChunker, user_query, user_profile, get_name, get_gender, get_age
 import torchvision.models as models
 import torch.nn as nn
 import torch
@@ -83,13 +83,22 @@ resnet18.eval()
 transform_test = transforms.Compose([transforms.ToTensor(),\
                                 transforms.Normalize(mean=[0.485, 0.456, 0.406],\
                                                  std=[0.229, 0.224, 0.225])])
-name_get = 0; gender_get = 0; age_get = 0
+
+### user profiling
 users = []
+data_path = "./data/profiles/"
+for idx,file in enumerate(os.listdir(data_path)):
+    filename = os.path.join(data_path,file)
+    with open(filename, 'rb') as fo:
+        users.append(pickle.load(fo, encoding='bytes'))
+confirm = 0; name_get = 0; gender_get = 0; age_get = 0
 user_ids = [u.recipient_id for u in users]
+print("Users:", users); print("User_ids:", user_ids)
+
 #We will receive messages that Facebook sends our bot at this endpoint 
 @app.route("/", methods=['GET', 'POST'])
 def receive_message():
-    global name_get, gender_get, age_get
+    global name_get, gender_get, age_get, confirm
     if request.method == 'GET':
         """Before allowing people to message your bot, Facebook has implemented a verify token
         that confirms all requests that your bot receives came from Facebook.""" 
@@ -119,32 +128,84 @@ def receive_message():
                     #### prompts user for name if its a new user
                     if (user.name == "") and (name_get == 0):
                         name_get = 1
-                        send_message(recipient_id, "Hey, how do I address you?")
+                        send_message(recipient_id, "Hey, I have not met you before. I'd like to know more about you!")
+                        send_message(recipient_id, "So, how do I address you?")
                         continue
                     #### gets user's name
                     if name_get == 1:
-                        name_get = 0
-                        user.name = get_name(usertext, bigram_chunker); user.save()
-                        send_message(recipient_id, f"Hi {user.name}!")
+                        name = get_name(usertext, bigram_chunker)
+                        if name == None and confirm != 1:
+                            send_message(recipient_id, "Ehh sorry I didn't really catch that. Whats your real name again?")
+                            continue
+                        elif confirm == 0:
+                            confirm = 1
+                            user.name = name
+                            send_message(recipient_id, f"Great, can I confirm that {user.name} is your correct name? (yes/no)")
+                            continue
+                        if confirm == 1:
+                            if usertext.lower() == "yes":
+                                confirm = 0; name_get = 0
+                                user.save()
+                                send_message(recipient_id, f"Great, hi {user.name}!")
+                            else:
+                                confirm = 0
+                                send_message(recipient_id, f"Okay... so whats your name again?")
+                                continue
                     
                     ################################# GENDER ######################################################################
                     #### prompts user for gender if new user
                     if user.gender == "" and gender_get == 0:
                         gender_get = 1
-                        send_message(recipient_id, "Alright, so whats your gender?")
+                        send_message(recipient_id, f"Alright {user.name}, so whats your gender?")
                         continue
                     ##### gets user's gender
                     if gender_get == 1:
-                        gender_get = 0
-                        user.gender = get_gender(usertext); user.save()
-                        send_message(recipient_id, f"Ah, ok. So you're a {user.gender}.")
+                        gender = get_gender(usertext)
+                        if gender == None and confirm != 1:
+                            send_message(recipient_id, "Ehh sorry I didn't really catch that. Whats your real gender again?")
+                            continue
+                        elif confirm == 0:
+                            confirm = 1
+                            user.gender = gender
+                            send_message(recipient_id, f"Great, can I confirm that {user.name} you are a {gender}? (yes/no)")
+                            continue
+                        if confirm ==1:
+                            if usertext.lower() == "yes":
+                                confirm = 0; gender_get = 0
+                                user.save()
+                                send_message(recipient_id, f"Great {user.name}!")
+                            else:
+                                confirm = 0
+                                send_message(recipient_id, f"Ah, ok. So whats your gender again")
+                                continue
                         
                     ######################### age ##########################################################
                     ###### prompts user for age if new user
                     if user.age == None and age_get == 0:
                         age_get = 1
-                        send_message(recipient_id, "Okey dokey, so whats your age?")
+                        send_message(recipient_id, f"Alright {user.name}, so whats your age :)?")
                         continue
+                    ##### gets user's age
+                    if age_get == 1:
+                        age = get_age(usertext)
+                        if age == None and confirm != 1:
+                            send_message(recipient_id, "Ehh sorry I didn't really catch that. Whats your real age again?")
+                            continue
+                        elif confirm == 0:
+                            confirm = 1
+                            user.age = age
+                            send_message(recipient_id, f"Great, can I confirm that {user.name} you are {age}? (yes/no)")
+                            continue
+                        if confirm ==1:
+                            if usertext.lower() == "yes":
+                                confirm = 0; age_get = 0
+                                user.save()
+                                send_message(recipient_id, f"Great {user.name}!!")
+                            else:
+                                confirm = 0
+                                send_message(recipient_id, f"Ah, ok why so secretive. So whats your age again???")
+                                continue
+                        
                     
                     send_message(recipient_id, user_query(usertext, model, sents_vec, documents_raw, stopwords))
                     send_message(recipient_id, "Say something and I'll say something related back!!")
