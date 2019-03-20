@@ -180,7 +180,6 @@ class user_profile():
         super(user_profile,self).__init__()
         self.name = ""
         self.recipient_id = None
-        self.hobbies = []
         self.gender = ""
         self.age = None
         self.interests = []
@@ -189,7 +188,8 @@ class user_profile():
         save_as_pickle(f"profiles/profile_{str(self.recipient_id)}.profile", self)
 
 def get_name(text, bigram_chunker):
-    stop_nouns = ["i", "he", "she", "they", "them", "it", "my", "me","we","you","a","the","an"]
+    stop_nouns = ["i", "he", "she", "they", "them", "it", "my", "me","we","you","a","the","an",\
+                  "who","what","why","when","how"]
     #bigram_chunker = load_pickle("bigram_chunker.pth.tar")
     sent = nltk.pos_tag(nltk.word_tokenize(text))
     sent_processed = tag_chunk_documents([sent], bigram_chunker)
@@ -246,4 +246,38 @@ def get_age(text):
         if age == 0:
             return
     return age
-    
+
+#bigram_chunker = load_pickle("bigram_chunker.pth.tar")
+def get_interests(text, bigram_chunker):
+    stop_interests = ["i", "he", "she", "they", "them", "it", "my", "me","we","you","a","the","an",\
+                      "who","what","why","when","how"]
+    sent = nltk.pos_tag(nltk.word_tokenize(text))
+    sent_processed = tag_chunk_documents([sent], bigram_chunker)
+    interests = []; real_interests = []
+    for i, w in enumerate(sent_processed[0]):
+        dummy = []
+        # look for noun phrases
+        if w[2] == "B-NP":
+            dummy = w[0]
+            for next_w in sent_processed[0][(i+1):]:
+                if next_w[2] == "I-NP":
+                    dummy = dummy + " " + next_w[0]
+                else:
+                    break
+            interests.append(dummy)
+        # look for action verbs
+        if w[1] == "VBG":
+            interests.append(w[0])
+        #### filter out those in stop_interests
+    if interests != []:
+        for i in interests:
+            flag = 0; i_s = i.lower().split()
+            for w in i_s:
+                if w in stop_interests:
+                    flag = 1
+            if flag == 0:
+                real_interests.append(i)
+    if real_interests != []:
+        return real_interests
+    else:
+        return None

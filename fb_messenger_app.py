@@ -13,7 +13,7 @@ from gensim.models import Word2Vec
 import nltk
 import pandas as pd
 import os
-from main_bible_chat import BigramChunker, user_query, user_profile, get_name, get_gender, get_age
+from main_bible_chat import BigramChunker, user_query, user_profile, get_name, get_gender, get_age, get_interests
 import torchvision.models as models
 import torch.nn as nn
 import torch
@@ -91,14 +91,17 @@ for idx,file in enumerate(os.listdir(data_path)):
     filename = os.path.join(data_path,file)
     with open(filename, 'rb') as fo:
         users.append(pickle.load(fo, encoding='bytes'))
-confirm = 0; name_get = 0; gender_get = 0; age_get = 0
+start = 0; confirm = 0; name_get = 0; gender_get = 0; age_get = 0; interests_get = 0
+bible_mode = 0
 user_ids = [u.recipient_id for u in users]
 print("Users:", users); print("User_ids:", user_ids)
+get_interest_keywords = ["interest","interests","interested","like","love","liking"]
+any_interesting = ["interesting", "fun", "nice", "bored", "up", "there",]
 
 #We will receive messages that Facebook sends our bot at this endpoint 
 @app.route("/", methods=['GET', 'POST'])
 def receive_message():
-    global name_get, gender_get, age_get, confirm
+    global start, name_get, gender_get, age_get, confirm, bible_mode, interests_get
     if request.method == 'GET':
         """Before allowing people to message your bot, Facebook has implemented a verify token
         that confirms all requests that your bot receives came from Facebook.""" 
@@ -205,10 +208,71 @@ def receive_message():
                                 confirm = 0
                                 send_message(recipient_id, f"Ah, ok why so secretive. So whats your age again???")
                                 continue
-                        
                     
-                    send_message(recipient_id, user_query(usertext, model, sents_vec, documents_raw, stopwords))
-                    send_message(recipient_id, "Say something and I'll say something related back!!")
+                    ############################ interests #######################################################
+                    ### prompts user for interests if new user
+                    if user.interests == [] and interests_get == 0:
+                        interests_get = 1
+                        send_message(recipient_id, f"So {user.name}! What are your interests??")
+                        continue
+                    ###### gets user's interests
+                    if interests_get == 1:
+                        interests = get_interests(usertext, bigram_chunker)
+                        if interests == None and confirm != 1:
+                            send_message(recipient_id, "Ehh sorry I didn't really catch that. Whats your interests again?")
+                            continue
+                        elif confirm == 0:
+                            confirm = 1
+                            user.interests = interests
+                            send_message(recipient_id, f"Great, can I confirm that {user.name} your interests are " + ", ".join(interests) \
+                                         + "? (yes/no)")
+                            continue
+                        if confirm ==1:
+                            if usertext.lower() == "yes":
+                                confirm = 0; interests_get = 0
+                                user.save()
+                                send_message(recipient_id, f"Great {user.name}, interesting!!")
+                                start = 1
+                            else:
+                                confirm = 0
+                                send_message(recipient_id, f"Ah, ok why so secretive. Come on, tell me your interests! :)")
+                                continue
+                    ############################### Greetings ######################################################
+                    if start == 0:
+                        start = 1
+                        send_message(recipient_id, f"Hey, {user.name}. Nice that you're back. Tell me something!")
+                        continue
+                    bible_mode = 1
+                    ######### gets and remember new interests during conversation ####################
+                    if any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in get_interest_keywords):
+                        interests = get_interests(usertext, bigram_chunker)
+                        if interests != None:
+                            send_message(recipient_id, f"I see that you are interested in " + ", ".join(interests) + ".")
+                            for interest in interests:
+                                if interest not in user.interests:
+                                    user.interests.append(interest)
+                            user.save(); continue
+
+                    ######## tell user what their current stored interests are #############################
+                    if any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in ["my", "mine","?","what","whats"]) and \
+                        any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in ["interests","hobbies","likes",\
+                                           "favourites","like","wants"]):
+                            send_message(recipient_id, "Oh..")
+                            send_message(recipient_id, f"Well, looks like you like " + ", ".join(user.interests) + ".")
+                            continue
+                    
+                    ####### go into bible mode #################
+                    if bible_mode == 1:
+                        # recommend something interesting to user if user prompts
+                        if any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in ["what","whats","what's","anything"])\
+                            and any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in any_interesting):
+                            send_message(recipient_id, "Well, since you're interested in " + ", ".join(user.interests) +\
+                                         ".....")
+                            send_message(recipient_id, user_query(" ".join(user.interests), \
+                                                                  model, sents_vec, documents_raw, stopwords))
+                        else:
+                            send_message(recipient_id, user_query(usertext, model, sents_vec, documents_raw, stopwords))
+                            send_message(recipient_id, "Say something and I'll say something related back!! :)")
                         
                 #if user sends us a GIF, photo,video, or any other non-text item
                 if message['message'].get('attachments'):
