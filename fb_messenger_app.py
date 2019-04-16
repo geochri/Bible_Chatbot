@@ -13,7 +13,7 @@ from gensim.models import Word2Vec
 import nltk
 import pandas as pd
 import os
-from main_bible_chat import BigramChunker, user_query, user_profile, get_name, get_gender, get_age, get_interests
+from main_bible_chat import BigramChunker, user_query, user_profile, get_name, get_gender, get_age, get_interests, get_verse
 import torchvision.models as models
 import torch.nn as nn
 import torch
@@ -69,6 +69,8 @@ ecc = df
 documents_raw, documents_token = preprocessW2V(ecc)
 sents_vec = vectorize_sent(documents_token, model)
 bigram_chunker = load_pickle("bigram_chunker.pth.tar")
+book_dict = pd.read_csv(os.path.join(datafolder, "key_english.csv"))
+book_dict = {book.lower():number for book, number in zip(book_dict["field.1"], book_dict["field"])}
 
 # Images
 invlabels_dict = {0:'apple', 1:'orange', 2:'pear'}
@@ -263,6 +265,7 @@ def receive_message():
                     
                     ####### go into bible mode #################
                     if bible_mode == 1:
+                        book, chapter, verse = get_verse(usertext, book_dict)
                         # recommend something interesting to user if user prompts
                         if any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in ["what","whats","what's","anything"])\
                             and any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in any_interesting):
@@ -270,9 +273,16 @@ def receive_message():
                                          ".....")
                             send_message(recipient_id, user_query(" ".join(user.interests), \
                                                                   model, sents_vec, documents_raw, stopwords))
+                            continue
+                        # return verse queries
+                        elif (book != None) and (chapter != None) and (verse != None):
+                            send_message(recipient_id, df[(df["b"] == int(book)) & (df["c"] == int(chapter)) & \
+                                                          (df["v"] == int(verse))]["t"].item())
+                            continue
                         else:
                             send_message(recipient_id, user_query(usertext, model, sents_vec, documents_raw, stopwords))
                             send_message(recipient_id, "Say something and I'll say something related back!! :)")
+                            continue
                         
                 #if user sends us a GIF, photo,video, or any other non-text item
                 if message['message'].get('attachments'):
