@@ -11,6 +11,7 @@ import nltk
 import os
 import pickle
 import re
+from thesaurus import Word
 
 def save_as_pickle(filename, data):
     completeName = os.path.join("./data/",\
@@ -135,18 +136,25 @@ def get_noun_phrases(sent_tree):
     noun_phrases = list(set(noun_phrases))
     return noun_phrases
 
-# vectorize sentences
+# vectorize query sentences
 def vectorize_sent(documents_token, model):
-    stopwords = list(set(nltk.corpus.stopwords.words("english")))
     sents_vec = []
     vocab = model.wv.vocab
     for sent in documents_token:
         l = 0; wv = 0
         for token in sent:
             if token in vocab:
-                if token not in stopwords:
-                    wv += model.wv[token]
-                    l += 1
+                wv += model.wv[token]
+                l += 1
+            else: # check for synonyms if word not in vocab
+                try:
+                    syns = Word(token).synonyms()
+                    for syn in syns:
+                        if syn in vocab:
+                            wv += model.wv[syn]
+                            l += 1; break
+                except:
+                    continue
         if l != 0:
             sents_vec.append(wv/l)
         else:
@@ -164,16 +172,23 @@ def most_sim_sent(query, sents_vec):
         except:
             score.append(0)
     score = np.array(score)
-    return score, score.argsort()[-np.random.randint(2,5):][::-1]
+    if all(score == 0):
+        return score, score.argsort()[-np.random.randint(2,5):][::-1], False
+    else:
+        return score, score.argsort()[-np.random.randint(2,5):][::-1], True
 
 def user_query(query, model, sents_vec, documents_raw, stopwords):
-    query = nltk.word_tokenize(query)
-    query = [word.lower() for word in query if word.isalnum()]
+    query = nltk.word_tokenize(query.lower())
+    #query = [word.lower() for word in query if word.isalnum()]
     query = [word for word in query if word not in stopwords]
     query = vectorize_sent([query], model)
-    sim_sent_score, sim_sent_idx = most_sim_sent(query, sents_vec)
-    ans = "\n".join([documents_raw[idx] for idx in sim_sent_idx])
-    return ans
+    sim_sent_score, sim_sent_idx, got_match = most_sim_sent(query, sents_vec)
+    if got_match == True:
+        ans = "\n".join([documents_raw[idx] for idx in sim_sent_idx])
+        return ans
+    else:
+        return np.random.choice(["Have peace. God loves you.", "Don't fret, we are all God's children, He will protect us.",\
+                                 "Don't worry, nothing is impossible with God.", "Be at peace with God."])
 
 class user_profile():
     def __init__(self):
@@ -183,6 +198,8 @@ class user_profile():
         self.gender = ""
         self.age = None
         self.interests = []
+        self.annoyance = 0
+        self.sad = 0
         
     def save(self):
         save_as_pickle("profiles/profile_%s.profile" % str(self.recipient_id), self)

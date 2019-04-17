@@ -94,7 +94,7 @@ for idx,file in enumerate(os.listdir(data_path)):
     filename = os.path.join(data_path,file)
     with open(filename, 'rb') as fo:
         users.append(pickle.load(fo, encoding='bytes'))
-start = 0; confirm = 0; name_get = 0; gender_get = 0; age_get = 0; interests_get = 0; annoyance = 0
+start = 0; confirm = 0; name_get = 0; gender_get = 0; age_get = 0; interests_get = 0
 bible_mode = 0
 user_ids = [u.recipient_id for u in users]
 print("Users:", users); print("User_ids:", user_ids)
@@ -104,7 +104,7 @@ any_interesting = ["interesting", "fun", "nice", "bored", "up", "there",]
 #We will receive messages that Facebook sends our bot at this endpoint 
 @app.route("/", methods=['GET', 'POST'])
 def receive_message():
-    global start, name_get, gender_get, age_get, confirm, bible_mode, interests_get, annoyance
+    global start, name_get, gender_get, age_get, confirm, bible_mode, interests_get
     if request.method == 'GET':
         """Before allowing people to message your bot, Facebook has implemented a verify token
         that confirms all requests that your bot receives came from Facebook.""" 
@@ -129,7 +129,7 @@ def receive_message():
                 if message['message'].get('text'):
                     #reads user message (usertext)
                     usertext = message['message']['text']
-                    
+                    ref = nltk.word_tokenize(usertext.lower())
                     ############################ NAME ############################################################################
                     #### prompts user for name if its a new user
                     if (user.name == "") and (name_get == 0):
@@ -215,7 +215,7 @@ def receive_message():
                     '''
                     ############################ interests #######################################################
                     ### prompts user for interests if new user
-                    if annoyance < 3:
+                    if user.annoyance < 3:
                         if user.interests == [] and interests_get == 0:
                             interests_get = 1
                             send_message(recipient_id, "So %s! What are your interests??" % user.name)
@@ -225,7 +225,7 @@ def receive_message():
                             interests = get_interests(usertext, bigram_chunker)
                             if interests == None and confirm != 1:
                                 send_message(recipient_id, "Ehh sorry I didn't really catch that. Whats your interests again?")
-                                annoyance += 1
+                                user.annoyance += 1; user.save()
                                 continue
                             elif confirm == 0:
                                 confirm = 1
@@ -242,7 +242,7 @@ def receive_message():
                                 else:
                                     confirm = 0
                                     send_message(recipient_id, "Ah, ok why so secretive. Come on, tell me your interests! :)")
-                                    annoyance += 1
+                                    user.annoyance += 1; user.save()
                                     continue
                     ############################### Greetings ######################################################
                     if start == 0:
@@ -251,7 +251,7 @@ def receive_message():
                         continue
                     bible_mode = 1
                     ######### gets and remember new interests during conversation ####################
-                    if any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in get_interest_keywords):
+                    if any(w for w in ref if w in get_interest_keywords):
                         interests = get_interests(usertext, bigram_chunker)
                         if interests != None:
                             send_message(recipient_id, "I see that you are interested in " + ", ".join(interests) + ".")
@@ -261,8 +261,8 @@ def receive_message():
                             user.save(); continue
 
                     ######## tell user what their current stored interests are #############################
-                    if any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in ["my", "mine","?","what","whats"]) and \
-                        any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in ["interests","hobbies","likes",\
+                    if any(w for w in ref if w in ["my", "mine","?","what","whats"]) and \
+                        any(w for w in ref if w in ["interests","hobbies","likes",\
                                            "favourites","like","wants"]):
                             send_message(recipient_id, "Oh..")
                             send_message(recipient_id, "Well, looks like you like " + ", ".join(user.interests) + ".")
@@ -272,8 +272,8 @@ def receive_message():
                     if bible_mode == 1:
                         book, chapter, verse = get_verse(usertext, book_dict)
                         # recommend something interesting to user if user prompts
-                        if any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in ["what","whats","what's","anything"])\
-                            and any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in any_interesting):
+                        if any(w for w in ref if w in ["what","whats","what's","anything"])\
+                            and any(w for w in ref if w in any_interesting):
                             send_message(recipient_id, "Well, since you're interested in " + ", ".join(user.interests) +\
                                          ".....")
                             send_message(recipient_id, user_query(" ".join(user.interests), \
@@ -286,6 +286,16 @@ def receive_message():
                                                               (df["v"] == int(verse))]["t"].item())
                             except:
                                 send_message(recipient_id, "Eh... Can't find the verse. Try again.")
+                            continue
+                        # Cheers user up if bot detects user is down
+                        elif any(w for w in ref if w in ["i", "me", "am"]) and any(w for w in ref if w in ["sad", "suicide", "die",\
+                                "lonely", "suicidal", "alone", "disappointed", "heartbroken", "bitter", "distressed",\
+                                "down", "gloomy", "low", "troubled", "grief", "dejected", "despondent", "doleful", "hurt"]):
+                            send_message(recipient_id, np.random.choice(["Don't worry. Jesus loves you.", "Cheer up! Rejoice in the fact that God us with us",\
+                                                                         "Theres nothing to worry if God is with you."]))
+                            send_message(recipient_id, user_query(np.random.choice(["peace", "happy", "joy", "loving", "blessing"]), \
+                                                                  model, sents_vec, documents_raw, stopwords))
+                            user.sad += 1; user.save()
                             continue
                         # return similar verses mode
                         else:
