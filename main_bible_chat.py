@@ -185,7 +185,7 @@ class user_profile():
         self.interests = []
         
     def save(self):
-        save_as_pickle(f"profiles/profile_{str(self.recipient_id)}.profile", self)
+        save_as_pickle("profiles/profile_%s.profile" % str(self.recipient_id), self)
 
 def get_name(text, bigram_chunker):
     stop_nouns = ["i", "he", "she", "they", "them", "it", "my", "me","we","you","a","the","an",\
@@ -287,9 +287,9 @@ def get_verse(usertext, book_dict):
     book, chapter, verse = None, None, None
     text = nltk.word_tokenize(usertext.lower())
     for c in chap:
-        s = re.search(f"(\d+ +{c})", usertext)
+        s = re.search("(\d+ +%s)" % c, usertext)
         if s != None:
-            book = s[0]; book = book_dict[book]
+            book = s.group(0); book = book_dict[book]
             break
     if book == None:
         for w in text:
@@ -299,12 +299,12 @@ def get_verse(usertext, book_dict):
     verse = re.search("verse +(\d+)", usertext)
     chapter = re.search("chapter +(\d+)", usertext)
     if verse != None:
-        verse = verse[1]
+        verse = verse.group(1)
     if chapter != None:
-        chapter = chapter[1]
+        chapter = chapter.group(1)
     # \d:\d format
     if (verse == None) and (chapter == None):
         s = re.search("(\d+):(\d+)", usertext)
         if s != None:
-            chapter = s[1]; verse = s[2]
+            chapter = s.group(1); verse = s.group(2)
     return book, chapter, verse

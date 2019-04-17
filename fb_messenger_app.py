@@ -20,6 +20,7 @@ import torch
 import numpy as np
 from PIL import Image
 import torchvision.transforms as transforms
+from waitress import serve
 
 app = Flask(__name__)
 ACCESS_TOKEN = 'EAACfCUImm24BANefNtnE5hQgS4VEcu29c229gpXozaClVcq1JHKzezcZBnsnDADKf3yulAdYfo3ZB5MWZBJ5hFBAdXfx87hzFrcmFG0VUtOZCfRYKKzwlkEnpje8XsTIHjbVtyf2zYdyc4Ra0IFAYbs1MBuJH4ASJ2ZCHimngvEDIt1VbcZAmX'
@@ -93,7 +94,7 @@ for idx,file in enumerate(os.listdir(data_path)):
     filename = os.path.join(data_path,file)
     with open(filename, 'rb') as fo:
         users.append(pickle.load(fo, encoding='bytes'))
-start = 0; confirm = 0; name_get = 0; gender_get = 0; age_get = 0; interests_get = 0
+start = 0; confirm = 0; name_get = 0; gender_get = 0; age_get = 0; interests_get = 0; annoyance = 0
 bible_mode = 0
 user_ids = [u.recipient_id for u in users]
 print("Users:", users); print("User_ids:", user_ids)
@@ -103,7 +104,7 @@ any_interesting = ["interesting", "fun", "nice", "bored", "up", "there",]
 #We will receive messages that Facebook sends our bot at this endpoint 
 @app.route("/", methods=['GET', 'POST'])
 def receive_message():
-    global start, name_get, gender_get, age_get, confirm, bible_mode, interests_get
+    global start, name_get, gender_get, age_get, confirm, bible_mode, interests_get, annoyance
     if request.method == 'GET':
         """Before allowing people to message your bot, Facebook has implemented a verify token
         that confirms all requests that your bot receives came from Facebook.""" 
@@ -145,23 +146,24 @@ def receive_message():
                         elif confirm == 0:
                             confirm = 1
                             user.name = name
-                            send_message(recipient_id, f"Great, can I confirm that {user.name} is your correct name? (yes/no)")
+                            send_message(recipient_id, "Great, can I confirm that %s is your correct name? (yes/no)" % user.name)
                             continue
                         if confirm == 1:
                             if usertext.lower() == "yes":
                                 confirm = 0; name_get = 0
                                 user.save()
-                                send_message(recipient_id, f"Great, hi {user.name}!")
+                                send_message(recipient_id, "Great, hi %s!" % user.name)
                             else:
                                 confirm = 0
-                                send_message(recipient_id, f"Okay... so whats your name again?")
+                                send_message(recipient_id, "Okay... so whats your name again?")
                                 continue
                     
+                    '''
                     ################################# GENDER ######################################################################
                     #### prompts user for gender if new user
                     if user.gender == "" and gender_get == 0:
                         gender_get = 1
-                        send_message(recipient_id, f"Alright {user.name}, so whats your gender?")
+                        send_message(recipient_id, "Alright %s, so whats your gender?" % user.name)
                         continue
                     ##### gets user's gender
                     if gender_get == 1:
@@ -172,23 +174,23 @@ def receive_message():
                         elif confirm == 0:
                             confirm = 1
                             user.gender = gender
-                            send_message(recipient_id, f"Great, can I confirm that {user.name} you are a {gender}? (yes/no)")
+                            send_message(recipient_id, "Great, can I confirm that %s you are a %s? (yes/no)" %(user.name, gender))
                             continue
                         if confirm ==1:
                             if usertext.lower() == "yes":
                                 confirm = 0; gender_get = 0
                                 user.save()
-                                send_message(recipient_id, f"Great {user.name}!")
+                                send_message(recipient_id, "Great %s!" % user.name)
                             else:
                                 confirm = 0
-                                send_message(recipient_id, f"Ah, ok. So whats your gender again")
+                                send_message(recipient_id, "Ah, ok. So whats your gender again")
                                 continue
                         
                     ######################### age ##########################################################
                     ###### prompts user for age if new user
                     if user.age == None and age_get == 0:
                         age_get = 1
-                        send_message(recipient_id, f"Alright {user.name}, so whats your age :)?")
+                        send_message(recipient_id, "Alright %s, so whats your age :)?" % user.name)
                         continue
                     ##### gets user's age
                     if age_get == 1:
@@ -199,57 +201,60 @@ def receive_message():
                         elif confirm == 0:
                             confirm = 1
                             user.age = age
-                            send_message(recipient_id, f"Great, can I confirm that {user.name} you are {age}? (yes/no)")
+                            send_message(recipient_id, "Great, can I confirm that %s you are %s? (yes/no)" %(user.name, age))
                             continue
                         if confirm ==1:
                             if usertext.lower() == "yes":
                                 confirm = 0; age_get = 0
                                 user.save()
-                                send_message(recipient_id, f"Great {user.name}!!")
+                                send_message(recipient_id, "Great %s!!" % user.name)
                             else:
                                 confirm = 0
-                                send_message(recipient_id, f"Ah, ok why so secretive. So whats your age again???")
+                                send_message(recipient_id, "Ah, ok why so secretive. So whats your age again???")
                                 continue
-                    
+                    '''
                     ############################ interests #######################################################
                     ### prompts user for interests if new user
-                    if user.interests == [] and interests_get == 0:
-                        interests_get = 1
-                        send_message(recipient_id, f"So {user.name}! What are your interests??")
-                        continue
-                    ###### gets user's interests
-                    if interests_get == 1:
-                        interests = get_interests(usertext, bigram_chunker)
-                        if interests == None and confirm != 1:
-                            send_message(recipient_id, "Ehh sorry I didn't really catch that. Whats your interests again?")
+                    if annoyance < 3:
+                        if user.interests == [] and interests_get == 0:
+                            interests_get = 1
+                            send_message(recipient_id, "So %s! What are your interests??" % user.name)
                             continue
-                        elif confirm == 0:
-                            confirm = 1
-                            user.interests = interests
-                            send_message(recipient_id, f"Great, can I confirm that {user.name} your interests are " + ", ".join(interests) \
-                                         + "? (yes/no)")
-                            continue
-                        if confirm ==1:
-                            if usertext.lower() == "yes":
-                                confirm = 0; interests_get = 0
-                                user.save()
-                                send_message(recipient_id, f"Great {user.name}, interesting!!")
-                                start = 1
-                            else:
-                                confirm = 0
-                                send_message(recipient_id, f"Ah, ok why so secretive. Come on, tell me your interests! :)")
+                        ###### gets user's interests
+                        if interests_get == 1:
+                            interests = get_interests(usertext, bigram_chunker)
+                            if interests == None and confirm != 1:
+                                send_message(recipient_id, "Ehh sorry I didn't really catch that. Whats your interests again?")
+                                annoyance += 1
                                 continue
+                            elif confirm == 0:
+                                confirm = 1
+                                user.interests = interests
+                                send_message(recipient_id, "Great, can I confirm that %s your interests are " % user.name + ", ".join(interests) \
+                                             + "? (yes/no)")
+                                continue
+                            if confirm ==1:
+                                if usertext.lower() == "yes":
+                                    confirm = 0; interests_get = 0
+                                    user.save()
+                                    send_message(recipient_id, "Great %s, interesting!!" % user.name)
+                                    start = 1
+                                else:
+                                    confirm = 0
+                                    send_message(recipient_id, "Ah, ok why so secretive. Come on, tell me your interests! :)")
+                                    annoyance += 1
+                                    continue
                     ############################### Greetings ######################################################
                     if start == 0:
                         start = 1
-                        send_message(recipient_id, f"Hey, {user.name}. Nice that you're back. Tell me something!")
+                        send_message(recipient_id, "Hey, %s. Nice that you're back. What do you wanna know about the Bible?" % user.name)
                         continue
                     bible_mode = 1
                     ######### gets and remember new interests during conversation ####################
                     if any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in get_interest_keywords):
                         interests = get_interests(usertext, bigram_chunker)
                         if interests != None:
-                            send_message(recipient_id, f"I see that you are interested in " + ", ".join(interests) + ".")
+                            send_message(recipient_id, "I see that you are interested in " + ", ".join(interests) + ".")
                             for interest in interests:
                                 if interest not in user.interests:
                                     user.interests.append(interest)
@@ -260,7 +265,7 @@ def receive_message():
                         any(w for w in [w.lower() for w in nltk.word_tokenize(usertext)] if w in ["interests","hobbies","likes",\
                                            "favourites","like","wants"]):
                             send_message(recipient_id, "Oh..")
-                            send_message(recipient_id, f"Well, looks like you like " + ", ".join(user.interests) + ".")
+                            send_message(recipient_id, "Well, looks like you like " + ", ".join(user.interests) + ".")
                             continue
                     
                     ####### go into bible mode #################
@@ -276,12 +281,16 @@ def receive_message():
                             continue
                         # return verse queries
                         elif (book != None) and (chapter != None) and (verse != None):
-                            send_message(recipient_id, df[(df["b"] == int(book)) & (df["c"] == int(chapter)) & \
-                                                          (df["v"] == int(verse))]["t"].item())
+                            try:
+                                send_message(recipient_id, df[(df["b"] == int(book)) & (df["c"] == int(chapter)) & \
+                                                              (df["v"] == int(verse))]["t"].item())
+                            except:
+                                send_message(recipient_id, "Eh... Can't find the verse. Try again.")
                             continue
+                        # return similar verses mode
                         else:
                             send_message(recipient_id, user_query(usertext, model, sents_vec, documents_raw, stopwords))
-                            send_message(recipient_id, "Say something and I'll say something related back!! :)")
+                            send_message(recipient_id, "What do you wanna know about the Bible? :)")
                             continue
                         
                 #if user sends us a GIF, photo,video, or any other non-text item
@@ -297,7 +306,7 @@ def receive_message():
                         output = resnet18(img.reshape(1,3,224,224))
                         _, predicted = torch.max(output.data, 1)
                         predicted_class = invlabels_dict[predicted.item()]
-                        send_message(recipient_id, f"Oh, its {predicted_class}!!!")
+                        send_message(recipient_id, "Oh, its %s!!!" % predicted_class)
                     except:
                         send_message(recipient_id, response_sent_nontext)
                         pass
@@ -325,4 +334,5 @@ def send_message(recipient_id, response):
     return "success"
 
 if __name__ == "__main__":
-    app.run()
+    #app.run()
+    serve(app, port=5000)
