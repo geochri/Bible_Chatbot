@@ -270,7 +270,7 @@ def receive_message():
                     
                     ####### go into bible mode #################
                     if bible_mode == 1:
-                        book, chapter, verse = get_verse(usertext, book_dict)
+                        book, chapter, verse, verse_end = get_verse(usertext, book_dict)
                         # recommend something interesting to user if user prompts
                         if any(w for w in ref if w in ["what","whats","what's","anything"])\
                             and any(w for w in ref if w in any_interesting):
@@ -280,13 +280,22 @@ def receive_message():
                                                                   model, sents_vec, documents_raw, stopwords))
                             continue
                         # return verse queries
-                        elif (book != None) and (chapter != None) and (verse != None):
-                            try:
+                        elif (book != None) and (chapter != None):
+                            if (verse != None) and (verse_end == None): # specific verse
                                 send_message(recipient_id, df[(df["b"] == int(book)) & (df["c"] == int(chapter)) & \
-                                                              (df["v"] == int(verse))]["t"].item())
-                            except:
-                                send_message(recipient_id, "Eh... Can't find the verse. Try again.")
-                            continue
+                                                                  (df["v"] == int(verse))]["t"].item())
+                                continue
+                            elif (verse != None) and (verse_end != None): # range of verses
+                                send_message(recipient_id, "\n\n".join(df[(df["b"] == int(book)) & (df["c"] == int(chapter)) & \
+                                                                  (df["v"] == c)]["t"].item() for c in \
+                                                                    range(int(verse)+1, int(verse_end+1))))
+                                continue
+                            else: # whole chapter
+                                send_message(recipient_id, "\n\n".join(df[(df["b"] == int(book)) & (df["c"] == int(chapter)) & \
+                                                                  (df["v"] == c)]["t"].item() for c in \
+                                                                    range(1, len(df[(df["b"] == int(book)) & (df["c"] == int(chapter))])+1)))
+                                continue
+                    
                         # Cheers user up if bot detects user is down
                         elif any(w for w in ref if w in ["i", "me", "am"]) and any(w for w in ref if w in ["sad", "suicide", "die",\
                                 "lonely", "suicidal", "alone", "disappointed", "heartbroken", "bitter", "distressed",\

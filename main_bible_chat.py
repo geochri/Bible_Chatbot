@@ -301,7 +301,7 @@ def get_interests(text, bigram_chunker):
 
 def get_verse(usertext, book_dict):
     chap = ["chronicles", "corinthians", "john", "kings", "peter", "samuel", "thessalonians", "timothy",]
-    book, chapter, verse = None, None, None
+    book, chapter, verse, verse_end = None, None, None, None
     text = nltk.word_tokenize(usertext.lower())
     for c in chap:
         s = re.search("(\d+ +%s)" % c, usertext)
@@ -319,9 +319,17 @@ def get_verse(usertext, book_dict):
         verse = verse.group(1)
     if chapter != None:
         chapter = chapter.group(1)
-    # \d:\d format
+    # \d:\d-\d format
     if (verse == None) and (chapter == None):
+        s = re.search("(\d+):(\d+) *-+ *(\d+)", usertext)
+        if s != None:
+            chapter = s.group(1); verse = s.group(2); verse_end = s.group(3)
+    # \d:\d format
+    if (verse == None) and (chapter == None) and (verse_end == None):
         s = re.search("(\d+):(\d+)", usertext)
         if s != None:
             chapter = s.group(1); verse = s.group(2)
-    return book, chapter, verse
+    return book, chapter, verse, verse_end
+
+def get_answers(usertext):
+    pass
