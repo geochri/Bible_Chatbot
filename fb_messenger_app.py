@@ -21,6 +21,7 @@ import numpy as np
 from PIL import Image
 import torchvision.transforms as transforms
 from waitress import serve
+import time
 
 app = Flask(__name__)
 ACCESS_TOKEN = 'EAACfCUImm24BANefNtnE5hQgS4VEcu29c229gpXozaClVcq1JHKzezcZBnsnDADKf3yulAdYfo3ZB5MWZBJ5hFBAdXfx87hzFrcmFG0VUtOZCfRYKKzwlkEnpje8XsTIHjbVtyf2zYdyc4Ra0IFAYbs1MBuJH4ASJ2ZCHimngvEDIt1VbcZAmX'
@@ -308,7 +309,9 @@ def receive_message():
                             continue
                         # searches gotquestions.org and returns answer if user asks a question
                         elif any(w for w in ref if w in ["who", "what", "why", "when", "how"]):
-                            send_message(recipient_id, get_answers(usertext))
+                            answer = get_answers(usertext)
+                            for ans in answer:
+                                send_message(recipient_id, ans); print(ans)
                             send_message(recipient_id, "What else do you wanna know about the Bible? :)")
                             continue
                         # return similar verses mode
