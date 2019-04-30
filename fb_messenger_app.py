@@ -13,7 +13,7 @@ from gensim.models import Word2Vec
 import nltk
 import pandas as pd
 import os
-from main_bible_chat import BigramChunker, user_query, user_profile, get_name, get_gender, get_age, get_interests, get_verse
+from main_bible_chat import BigramChunker, user_query, user_profile, get_name, get_gender, get_age, get_interests, get_verse, get_answers
 import torchvision.models as models
 import torch.nn as nn
 import torch
@@ -99,7 +99,7 @@ bible_mode = 0
 user_ids = [u.recipient_id for u in users]
 print("Users:", users); print("User_ids:", user_ids)
 get_interest_keywords = ["interest","interests","interested","like","love","liking"]
-any_interesting = ["interesting", "fun", "nice", "bored", "up", "there",]
+any_interesting = ["interesting", "fun", "nice", "bored", "something", "up"]
 
 #We will receive messages that Facebook sends our bot at this endpoint 
 @app.route("/", methods=['GET', 'POST'])
@@ -305,6 +305,11 @@ def receive_message():
                             send_message(recipient_id, user_query(np.random.choice(["peace", "happy", "joy", "loving", "blessing"]), \
                                                                   model, sents_vec, documents_raw, stopwords))
                             user.sad += 1; user.save()
+                            continue
+                        # searches gotquestions.org and returns answer if user asks a question
+                        elif any(w for w in ref if w in ["who", "what", "why", "when", "how"]):
+                            send_message(recipient_id, get_answers(usertext))
+                            send_message(recipient_id, "What else do you wanna know about the Bible? :)")
                             continue
                         # return similar verses mode
                         else:
