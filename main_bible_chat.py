@@ -12,6 +12,8 @@ import os
 import pickle
 import re
 from thesaurus import Word
+import requests
+from bs4 import BeautifulSoup
 
 def save_as_pickle(filename, data):
     completeName = os.path.join("./data/",\
@@ -331,5 +333,19 @@ def get_verse(usertext, book_dict):
             chapter = s.group(1); verse = s.group(2)
     return book, chapter, verse, verse_end
 
+def get_content(url):
+    user_agent = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36"}
+    resp = requests.get(url, headers=user_agent)
+    if resp.ok:
+        return resp.content
+
+# searches gotquestions.org for query and returns most relevant answer
 def get_answers(usertext):
-    pass
+    text = nltk.word_tokenize(usertext.lower())
+    text = "+".join(w for w in text); print(text)
+    url = "https://www.gotquestions.org/search.php?zoom_query=%s" % text
+    soup = BeautifulSoup(get_content(url), "html.parser")
+    top_url = soup.find_all("div", class_= "infoline")[0].get_text()[5:]
+    soup = BeautifulSoup(get_content(top_url), "html.parser")
+    ans = soup.find_all("span", itemprop = "articleBody")[0].get_text()
+    return ans
