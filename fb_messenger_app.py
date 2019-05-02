@@ -131,6 +131,9 @@ def receive_message():
                     #reads user message (usertext)
                     usertext = message['message']['text']
                     ref = nltk.word_tokenize(usertext.lower())
+                    ## create name for user
+                    user.name = "friend"; user.save()
+                    '''
                     ############################ NAME ############################################################################
                     #### prompts user for name if its a new user
                     if (user.name == "") and (name_get == 0):
@@ -158,7 +161,7 @@ def receive_message():
                                 confirm = 0
                                 send_message(recipient_id, "Okay... so whats your name again?")
                                 continue
-                    
+                    '''
                     '''
                     ################################# GENDER ######################################################################
                     #### prompts user for gender if new user
@@ -214,6 +217,7 @@ def receive_message():
                                 send_message(recipient_id, "Ah, ok why so secretive. So whats your age again???")
                                 continue
                     '''
+                    '''
                     ############################ interests #######################################################
                     ### prompts user for interests if new user
                     if user.annoyance < 3:
@@ -245,6 +249,7 @@ def receive_message():
                                     send_message(recipient_id, "Ah, ok why so secretive. Come on, tell me your interests! :)")
                                     user.annoyance += 1; user.save()
                                     continue
+                    '''
                     ############################### Greetings ######################################################
                     if start == 0:
                         start = 1
@@ -308,12 +313,18 @@ def receive_message():
                             user.sad += 1; user.save()
                             continue
                         # searches gotquestions.org and returns answer if user asks a question
-                        elif any(w for w in ref if w in ["who", "what", "why", "when", "how"]):
+                        elif any(w for w in ref if w in ["who", "what", "why", "when", "how", "does", "do", "?"]):
+                            send_message(recipient_id, "Please wait while I think...")
                             answer = get_answers(usertext)
-                            for ans in answer:
-                                send_message(recipient_id, ans); print(ans)
-                            send_message(recipient_id, "What else do you wanna know about the Bible? :)")
-                            continue
+                            if answer == None:
+                                send_message(recipient_id, user_query(usertext, model, sents_vec, documents_raw, stopwords))
+                                send_message(recipient_id, "What do you wanna know about the Bible? :)")
+                                continue
+                            else:
+                                for ans in answer:
+                                    send_message(recipient_id, ans); #print(ans)
+                                send_message(recipient_id, "What else do you wanna know about the Bible? :)")
+                                continue
                         # return similar verses mode
                         else:
                             send_message(recipient_id, user_query(usertext, model, sents_vec, documents_raw, stopwords))

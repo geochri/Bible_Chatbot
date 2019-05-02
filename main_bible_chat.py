@@ -341,15 +341,20 @@ def get_content(url):
 
 # searches gotquestions.org for query and returns most relevant answer
 def get_answers(usertext):
-    text = nltk.word_tokenize(usertext.lower())
-    text = "+".join(w for w in text); # print(text)
-    url = "https://www.gotquestions.org/search.php?zoom_query=%s" % text
-    soup = BeautifulSoup(get_content(url), "html.parser")
-    top_url = soup.find_all("div", class_= "infoline")[0].get_text()[5:]
-    soup = BeautifulSoup(get_content(top_url), "html.parser")
-    ans = soup.find_all("span", itemprop = "articleBody")[0].get_text()
-    l_ans = len(ans); answer = []; i = 0
-    while (i < l_ans):
-        answer.append(ans[i:(i+3000)])
-        i += 3000
-    return answer
+    try:
+        text = nltk.word_tokenize(usertext.lower())
+        text = "+".join(w for w in text); # print(text)
+        url = "https://www.gotquestions.org/search.php?zoom_query=%s" % text
+        soup = BeautifulSoup(get_content(url), "html.parser")
+        top_url = soup.find_all("div", class_= "infoline")[0].get_text()[5:]
+        soup = BeautifulSoup(get_content(top_url), "html.parser")
+        ans = soup.find_all("span", itemprop = "articleBody")[0].get_text()
+        ans = re.sub("\r","", ans); ans = re.sub("\n","", ans)
+        #ans = re.search("(Answer: )(.+)", ans); ans = ans[2]
+        l_ans = len(ans); answer = []; i = 0
+        while (i < l_ans):
+            answer.append(ans[i:(i+2000)])
+            i += 2000
+        return answer
+    except:
+        return
