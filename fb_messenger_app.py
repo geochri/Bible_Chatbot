@@ -294,7 +294,7 @@ def receive_message():
                             elif (verse != None) and (verse_end != None): # range of verses
                                 send_message(recipient_id, "\n\n".join(df[(df["b"] == int(book)) & (df["c"] == int(chapter)) & \
                                                                   (df["v"] == c)]["t"].item() for c in \
-                                                                    range(int(verse)+1, int(verse_end+1))))
+                                                                    range(int(verse)+1, int(verse_end)+1)))
                                 continue
                             else: # whole chapter
                                 send_message(recipient_id, "\n\n".join(df[(df["b"] == int(book)) & (df["c"] == int(chapter)) & \
@@ -313,7 +313,8 @@ def receive_message():
                             user.sad += 1; user.save()
                             continue
                         # searches gotquestions.org and returns answer if user asks a question
-                        elif any(w for w in ref if w in ["who", "what", "why", "when", "how", "does", "do", "?"]):
+                        elif any(w for w in ref if w in ["who", "whos", "what", "whats", "why", "whys", "when", "whens", \
+                                                         "how", "hows", "does", "do", "?"]):
                             send_message(recipient_id, "Please wait while I think...")
                             answer = get_answers(usertext)
                             if answer == None:
